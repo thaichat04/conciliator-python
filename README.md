@@ -3,6 +3,7 @@ Python library for the Conciliator API
 
 ```python
 import conciliator as cc
+
 cc.connect(username, pwd, tenant)
 for entity in cc.Entity.list():
   print(entity.name)
