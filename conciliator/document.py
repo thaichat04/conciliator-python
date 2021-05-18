@@ -2,7 +2,6 @@
 import json
 import conciliator
 import datetime
-from conciliator.file import File
 
 class Document:
 
@@ -10,37 +9,44 @@ class Document:
     status: str
     totalPages: int
     name: str
-    entityId: str
-    entityIdentifier: str
-    entityName: str
-    apeCode: str
-    apeDescription: str
     type: str
     comment: str
     fields: object
     user_tag: object
     nb_lines: int
-    lettering: str
 
-    # ?? TODO
-    emitter: str
-    score: str
-    pages: object
-    page_image_digest: object
-
-    # TODO: to remove
-    since: datetime.datetime
-    errors: object
-    prepared: bool
-    preparationRequired: bool
-    connector_status: str
-    error_status: str
-    durationSoFar: int
-    splittable: bool
-    editionView: str
-    tenantName: str
-    viewName: str
-    wfc: str
+    DATA_QUERY = [{
+        "id": "goupix_invoices",
+        "pagination": {
+            "sort": {
+                "elements": [
+                    {
+                        "column": "created",
+                        "order": "DESC"
+                    },
+                    {
+                        "column": "page_file_number",
+                        "order": "ASC"
+                    }
+                ]
+            },
+            "windowId": {
+                "firstValues": None,
+                "lastValues": None
+            }
+        },
+        "filtering": {
+            "appliedFilters": {
+                "entity_id": {
+                    "items": [
+                        {
+                            "value": "<entity_id>"
+                        }
+                    ]
+                }
+            }
+        }
+    }]
 
 
     @classmethod
@@ -49,19 +55,18 @@ class Document:
 # GET
 # https://app.expert.conciliator.ai/api/v0/documents?entity_id=262929ec-a9a6-424a-a90e-f1dc3e7740fc&limit=5000&invoice_type=SALE,PURCHASE
 
-    @classmethod
-    def from_file(cls, file: File):
-        # FIXME: missing call to API /documents with arg (file_id)
-        # 'file_name' exists but leading to errors as name is not unique
-        # fallback to file -> page -> document
-        l = []
-        doc_ids = []
-        for page in file.pages():
-            if page.document_id in doc_ids: continue
-            doc_ids.append(page.document_id)
-            l.append(Document.load(page.document_id))
-        return l
-
+    # @classmethod
+    # def from_filepages(cls, file: File):
+    #     # FIXME: missing call to API /documents with arg (file_id)
+    #     # 'file_name' exists but leading to errors as name is not unique
+    #     # fallback to file -> page -> document
+    #     l = []
+    #     doc_ids = []
+    #     for page in file.pages():
+    #         if page.document_id in doc_ids: continue
+    #         doc_ids.append(page.document_id)
+    #         l.append(Document.load(page.document_id))
+    #     return l
 
     @classmethod
     def load(cls, doc_id:str):
@@ -70,21 +75,17 @@ class Document:
         return Document(json.loads(r.text))
 
     def __init__(self, data):
-        # remove deprecated
-        data.pop('activity', None)
-        data.pop('type_activity', None)
-        # convert types
-        if data['fisc_start']: data['fisc_start'] = datetime.datetime.strptime(data['fisc_start'], '%Y-%m-%d').date()
-        if data['fisc_end']  : data['fisc_end']   = datetime.datetime.strptime(data['fisc_end'],   '%Y-%m-%d').date()
+        # TODO convert types
         self.__dict__ = data
 
+    @property
+    def pdf(self):
+        r = conciliator.session.get(conciliator.api_url + 'document/' + self.id + '/download')
+        if r.status_code != 200: raise ValueError("Cannot download PDF for document")
+        return r.content
 
-    # exclude from bank reconciliation
-    def exclude(self):
-        r = conciliator.session.put(conciliator.api_url + "operation/invoice/" + self.id + "exclude")
-        if r.status_code != 204:
-            raise ValueError("Could not exclude invoice from bank reconciliation")
-        return True
+
+
 
 
 

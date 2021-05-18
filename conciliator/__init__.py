@@ -1,19 +1,21 @@
 import requests
 import jwt as pyjwt
 import base64
-import json
 
 from conciliator.connector import Connector
 from conciliator.entity import Entity
 from conciliator.file import File
 from conciliator.document import Document
 from conciliator.page import Page
+from conciliator.invoice import Invoice
 
 API_VERSION =  "api/v0/"
 
 app_url = "https://app.expert.conciliator.ai/"
 api_url = app_url + API_VERSION
 session = None
+
+current_entity: Entity = None
 
 def url(l):
     global app_url
@@ -23,7 +25,8 @@ def url(l):
 
 def connect(username, pwd, tenant=None):
     global session
-    session = requests.Session()
+    if not isinstance(session, requests.Session):
+        session = requests.Session()
     params = {'callbackUrl': app_url + "?jwtResponse=${jwtResponse}"}
     r = session.get(api_url + "user/loginRedirectionUrl", params=params)
 
@@ -37,17 +40,16 @@ def connect(username, pwd, tenant=None):
     payload = {'type': "basic", 'value': credentials, 'accountStore': {'href': api_app_url}}
     r = session.post(api_app_url + "/loginAttempts", json=payload,
                           headers={'Authorization': "Bearer %s" % jwt})
-    if r.status_code != 200:
-        raise ValueError("Authentication failed")
+    r.raise_for_status()
     if r.text:
         # Tenant selection
         bearer = r.headers['authorization']
-        org_url = json.loads(r.content)['account']['href'] + '/organizations'
+        org_url = r.json()['account']['href'] + '/organizations'
         r = session.get(org_url,
                              params = {'offset':0, 'limit': 10, 'q': tenant},
                              headers={'Authorization': "%s" % bearer})
         tenant_id = None
-        for t in json.loads(r.content)['items']:
+        for t in r.json()['items']:
             if t['nameKey'] == tenant:
                 tenant_id = t['id']
                 break

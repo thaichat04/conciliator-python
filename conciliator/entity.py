@@ -1,19 +1,9 @@
-import json
 import conciliator
 import datetime
-from json import JSONEncoder
+from conciliator.conciliatorobj import ConciliatorObj
+import json
 
-# TODO: a mettre dans utils
-# Credits: https://gist.github.com/abhinav-upadhyay/5300137
-class DateTimeEncoder(JSONEncoder):
-
-    def default(self, obj):
-        if isinstance(obj, datetime.date):
-            return datetime.datetime.strftime(obj, '%Y-%m-%d')
-        else:
-            return JSONEncoder.default(self, obj)
-
-class Entity:
+class Entity(ConciliatorObj):
 
     id: str
     code: str                   # code APE
@@ -28,26 +18,28 @@ class Entity:
     def list(cls, query=None):
         l = []
         params = {'q': query}
-        for js in json.loads(conciliator.session.get(conciliator.api_url + "entities", params=params).text):
-            l.append(Entity(js))
+        r = conciliator.session.get(conciliator.api_url + "entities", params=params)
+        r.raise_for_status()
+        for e in r.json():
+            l.append(Entity(e))
         return l
 
-    def __init__(self, data):
-        # remove deprecated
-        data.pop('activity', None)
-        data.pop('type_activity', None)
-        # convert types
-        if data['fisc_start']: data['fisc_start'] = datetime.datetime.strptime(data['fisc_start'], '%Y-%m-%d').date()
-        if data['fisc_end']  : data['fisc_end']   = datetime.datetime.strptime(data['fisc_end'],   '%Y-%m-%d').date()
-        self.__dict__ = data
+    @classmethod
+    def load(cls, query=None):
+        es = Entity.list(query)
+        if len(es) > 1: raise ValueError('Not unique result')
+        if len(es) == 0: return None
+        return es[0]
 
     def __str__(self):
         return self.identifier + ' - ' + self.name
 
+    def set_current(self):
+        conciliator.current_entity = self
+
     def save(self):
         r = conciliator.session.patch(conciliator.api_url + "entities",
-                                      data=json.dumps([self.__dict__,], cls=DateTimeEncoder),
-                                      headers={'Content-type': 'application/json'})
-        if r.status_code != 204:
-            raise ValueError("Cannot save entity")
+                                       data=json.dumps([self.serialize(),]),
+                                       headers={'Content-type': 'application/json'})
+        r.raise_for_status()
         return True

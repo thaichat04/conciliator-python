@@ -1,5 +1,6 @@
+from conciliator.conciliatorobj import ConciliatorObj
 
-class Page:
+class Page(ConciliatorObj):
 
     id: str
     number: int
@@ -7,8 +8,3 @@ class Page:
     type: str
     document_id: str
     split: bool
-
-    def __init__(self, data):
-        # convert types
-        if data['split']: data['split'] = (  data['split'] == 'True' )
-        self.__dict__ = data
