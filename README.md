@@ -10,9 +10,3 @@ for entity in cc.Entity.list():
   for f in cc.File.list(entity)
     print(f.name)
 ```
-
-## Build distribution
-
-```shell
-python setup.py sdist bdist_wheel
-```
